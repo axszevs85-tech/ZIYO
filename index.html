@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#05070b">
+
+    <title>J.A.R.V.I.S - Gemini AI</title>
+
+    <style>
+        :root {
+            --blue: #00f3ff;
+            --glow: rgba(0, 243, 255, 0.3);
+            --bg: #05070b;
+            --card: rgba(13, 17, 23, 0.92);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle, #0d1b2a, #05070b);
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 430px;
+            padding: 25px;
+            background: var(--card);
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.7),
+                        0 0 20px rgba(0, 243, 255, 0.08);
+            backdrop-filter: blur(12px);
+        }
+
+        h1 {
+            color: var(--blue);
+            text-align: center;
+            font-size: 2.4rem;
+            letter-spacing: 4px;
+            margin: 0 0 8px;
+            text-shadow: 0 0 15px var(--glow);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8d99ae;
+            font-size: 12px;
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            color: var(--blue);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 10px var(--glow);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 8px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+        }
+
+        #startBtn {
+            background: linear-gradient(135deg, #0077b6, #0096c7);
+            color: white;
+        }
+
+        #stopBtn {
+            background: linear-gradient(135deg, #d90429, #ef233c);
+            color: white;
+        }
+
+        #status {
+            margin-top: 18px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            text-align: center;
+            font-size: 13px;
+            color: #8d99ae;
+            overflow-wrap: anywhere;
+        }
+
+        #response {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            min-height: 100px;
+            max-height: 260px;
+            overflow-y: auto;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        #response strong {
+            color: var(--blue);
+        }
+
+        .hint {
+            color: #8d99ae;
+            font-size: 11px;
+            line-height: 1.6;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <h1>J.A.R.V.I.S</h1>
+
+    <div class="subtitle">PERSONAL AI ASSISTANT • GEMINI</div>
+
+    <label for="apiKey">Google Gemini API kaliti</label>
+
+    <input
+        type="password"
+        id="apiKey"
+        placeholder="Gemini API kalitini kiriting"
+        autocomplete="off"
+    >
+
+    <div class="btn-group">
+        <button id="startBtn">🎤 Gapirish</button>
+        <button id="stopBtn">⏹ To‘xtatish</button>
+    </div>
+
+    <div id="status">Tizim tayyor. Buyruq bering!</div>
+
+    <div id="response"><strong>J.A.R.V.I.S:</strong>
+Salom! Men sizning shaxsiy AI yordamchingizman.
+Menga savol bering!</div>
+
+    <div class="hint">
+        Mikrofon uchun brauzer ruxsatini bering.
+        API kalitingizni begonalarga bermang.
+    </div>
+
+</div>
+
+<script>
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const statusDiv = document.getElementById("status");
+    const responseDiv = document.getElementById("response");
+    const apiKeyInput = document.getElementById("apiKey");
+
+    const MODEL = "gemini-2.5-flash";
+
+    const API_URL =
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+
+    const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+    let recognition = null;
+    let listening = false;
+    let requestController = null;
+    let operationId = 0;
+
+    // Javobni xavfsiz chiqarish
+    function showResponse(title, message) {
+        responseDiv.replaceChildren();
+
+        const heading = document.createElement("strong");
+        heading.textContent = title + ": ";
+
+        responseDiv.appendChild(heading);
+        responseDiv.appendChild(
+            document.createTextNode(message)
+        );
+    }
+
+    // AI
